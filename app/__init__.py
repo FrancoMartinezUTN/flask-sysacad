@@ -1,25 +1,28 @@
+import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
-import os
 
-# Inicializamos la extensión de SQLAlchemy
+# Cargar las variables desde .env
+load_dotenv()
+
+# Base de datos
 db = SQLAlchemy()
 
 def create_app():
-    # Cargar variables desde el archivo .env
-    load_dotenv()
-
-    # Crear la instancia de la app
     app = Flask(__name__)
 
-    # Configurar la app usando el archivo config.py
-    app.config.from_object('config.Config')
+    # Obtener el contexto desde .env
+    context = os.getenv('FLASK_CONTEXT', 'development')
 
-    # Inicializar la base de datos con la app
+    # Importar clase de configuración correspondiente
+    from app.config.entornos import factory
+    app.config.from_object(factory(context))
+
+    # Inicializar la DB
     db.init_app(app)
 
-    # Importar y registrar los blueprints (rutas)
+    # Importar rutas (blueprints)
     from app.routes.alumno_routes import alumno_bp
     app.register_blueprint(alumno_bp)
 
