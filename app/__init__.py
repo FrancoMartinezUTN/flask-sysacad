@@ -24,6 +24,9 @@ def create_app():
 
     # Importar rutas (blueprints)
     from app.routes.alumno_routes import alumno_bp
+    from app.routes.materia_routes import materia_bp
+
     app.register_blueprint(alumno_bp)
+    app.register_blueprint(materia_bp)
 
     return app
