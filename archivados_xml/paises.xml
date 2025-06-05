@@ -1,0 +1,14 @@
+<paises>
+  <pais>
+    <id>1</id>
+    <nombre>Argentina</nombre>
+  </pais>
+  <pais>
+    <id>2</id>
+    <nombre>Brasil</nombre>
+  </pais>
+  <pais>
+    <id>3</id>
+    <nombre>Uruguay</nombre>
+  </pais>
+</paises>
