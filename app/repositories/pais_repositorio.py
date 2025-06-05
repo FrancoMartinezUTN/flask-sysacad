@@ -1,4 +1,5 @@
-from app.models import db, Pais
+from app import db
+from app.models.pais import Pais  
 
 def insertar_pais(id, nombre):
     if not db.session.get(Pais, id):
