@@ -30,3 +30,4 @@ def create_app():
     app.register_blueprint(materia_bp)
 
     return app
+__all__ = ["create_app", "db"]
