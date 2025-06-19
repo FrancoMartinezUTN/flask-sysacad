@@ -9,14 +9,14 @@ from app.repositories.grado_repositorio import insertar_o_actualizar_grado
 
 XML_EJEMPLO = """
 <grados>
-  <grado>
+<grado>
     <id>10</id>
     <nombre>Grado Técnico</nombre>
-  </grado>
-  <grado>
+</grado>
+<grado>
     <id>20</id>
     <nombre>Grado Universitario</nombre>
-  </grado>
+</grado>
 </grados>
 """
 
