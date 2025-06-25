@@ -1,15 +1,16 @@
-from app import db
 
-class Alumno(db.Model):
-    __tablename__ = 'alumnos'
+from sqlalchemy import Column, Integer, String, Date
+from app.database import Base
 
-    id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'nombre': self.nombre,
-            'email': self.email
-        }
+class Alumno(Base):
+    __tablename__ = "alumnos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    apellido = Column(String(100), nullable=False)
+    dni = Column(String(20), unique=True, nullable=False)
+    email = Column(String(100), unique=True, nullable=False)
+    fecha_nacimiento = Column(Date, nullable=True)
+    carrera = Column(String(50), nullable=True)
+    año_ingreso = Column(Integer, nullable=True)
