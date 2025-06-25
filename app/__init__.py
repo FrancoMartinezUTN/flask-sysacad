@@ -1,13 +1,12 @@
 import os
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 
 # Cargar las variables desde .env
 load_dotenv()
 
-# Base de datos
-db = SQLAlchemy()
+# Importar la base de datos desde el módulo db.py
+from app.db import db
 
 def create_app():
     app = Flask(__name__)
@@ -30,3 +29,6 @@ def create_app():
     app.register_blueprint(materia_bp)
 
     return app
+
+# Exportamos los elementos necesarios al importar app
+__all__ = ["create_app", "db"]
