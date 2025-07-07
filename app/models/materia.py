@@ -1,5 +1,5 @@
-
 from app.db import db
+
 
 class Materia(db.Model):
     __tablename__ = 'materia'

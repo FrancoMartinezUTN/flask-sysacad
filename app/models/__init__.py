@@ -1,5 +1,4 @@
-
-from app.models.alumno import Alumno
-from .plan import Plan 
-from .materia import Materia
-from .alumno import Alumno
+import os
+from flask import Flask
+from dotenv import load_dotenv
+from app.db import db

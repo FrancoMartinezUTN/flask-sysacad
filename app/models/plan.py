@@ -1,4 +1,4 @@
-from app import db
+from app.db import db
 
 class Plan(db.Model):
     __tablename__ = "planes"
