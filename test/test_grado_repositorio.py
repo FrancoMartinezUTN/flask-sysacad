@@ -1,7 +1,6 @@
 import os
 import pytest
 from app import create_app, db
-from app.models.grado import Grado
 from app.repositories.grado_repositorio import insertar_grado
 
 @pytest.fixture
@@ -15,7 +14,8 @@ def app_context():
         db.drop_all()
 
 def test_insertar_grado(app_context):
+    from app.models import Grado
     insertar_grado(1, "Test Grado")
-    grado = Grado.query.get(1)
+    grado = db.session.get(Grado, 1)  # Cambiar de Grado.query.get(1)
     assert grado is not None
     assert grado.nombre == "Test Grado"

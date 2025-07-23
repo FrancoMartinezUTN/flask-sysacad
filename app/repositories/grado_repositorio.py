@@ -1,8 +1,8 @@
+# app/repositories/grado_repositorio.py
 from app import db
-from app.models.grado import Grado
+from app.models import Grado
 
-def insertar_grado(id, nombre):
-    if not db.session.get(Grado, id):
-        nuevo_grado = Grado(id=id, nombre=nombre)
-        db.session.add(nuevo_grado)
-        db.session.commit()
+def insertar_grado(nombre):
+    grado = Grado(nombre=nombre)
+    db.session.add(grado)
+    db.session.commit()

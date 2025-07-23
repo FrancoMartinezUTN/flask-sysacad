@@ -1,5 +1,7 @@
 import os
 from dotenv import load_dotenv
+from dotenv import load_dotenv
+load_dotenv()
 from pathlib import Path
 
 # Cargar variables desde .env
@@ -21,7 +23,8 @@ class TestConfig(Config):
     TESTING = True
     DEBUG = True
     SQLALCHEMY_TRACK_MODIFICATIONS = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI')
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"  # Usar base en memoria para tests
+
 
 class DevelopmentConfig(Config):
     TESTING = True

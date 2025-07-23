@@ -1,32 +1,35 @@
-import os
+# app/__init__.py
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from dotenv import load_dotenv
+from .config import factory
+import os
+import logging
 
-# Cargar las variables desde .env
-load_dotenv()
-
-# Base de datos
 db = SQLAlchemy()
 
 def create_app():
     app = Flask(__name__)
+    
+    logging.basicConfig(level=logging.INFO)
+    app.logger.setLevel(logging.INFO)
 
-    # Obtener el contexto desde .env
-    context = os.getenv('FLASK_CONTEXT', 'development')
-
-    # Importar clase de configuración correspondiente
-    from app.config.entornos import factory
-    app.config.from_object(factory(context))
-
-    # Inicializar la DB
+    env = os.environ.get('FLASK_CONTEXT', 'development')
+    config = factory(env.lower())
+    app.config.from_object(config)
+    
     db.init_app(app)
-
-    # Importar rutas (blueprints)
-    from app.routes.alumno_routes import alumno_bp
-    from app.routes.materia_routes import materia_bp
-
-    app.register_blueprint(alumno_bp)
-    app.register_blueprint(materia_bp)
-
+    
+    from app.routes.routes import main_bp
+    app.register_blueprint(main_bp)
+    
+    # Importar y registrar comandos dinámicamente
+    with app.app_context():
+        from .cli import register_commands
+        register_commands(app)
+    
+    with app.app_context():
+        db.create_all()
+    
     return app
+
+__all__ = ['db']

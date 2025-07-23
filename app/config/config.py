@@ -1,4 +1,3 @@
-from asyncio.log import logger
 from dotenv import load_dotenv
 from pathlib import Path
 import os
@@ -10,6 +9,7 @@ class Config(object):
     TESTING = False
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_RECORD_QUERIES = True
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'default_secret_key')
     
     @staticmethod
     def init_app(app):
@@ -18,20 +18,20 @@ class Config(object):
 class TestConfig(Config):
     TESTING = True
     DEBUG = True
-    SQLALCHEMY_TRACK_MODIFICATIONS = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URI')
-    
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URI', 'sqlite:///test.db')
+
 class DevelopmentConfig(Config):
-    TESTING = True
+    TESTING = False
     DEBUG = True
-    SQLALCHEMY_TRACK_MODIFICATIONS = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URI')
-        
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI', 'sqlite:///development.db')
+
 class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
     SQLALCHEMY_RECORD_QUERIES = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get('PROD_DATABASE_URI')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI')
     
     @classmethod
     def init_app(cls, app):
