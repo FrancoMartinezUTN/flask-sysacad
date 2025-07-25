@@ -1,0 +1,10 @@
+<Root>
+    <Materia>
+        <Nombre>Matemáticas</Nombre>
+        <GradoId>1</GradoId>
+    </Materia>
+    <Materia>
+        <Nombre>Anatomía</Nombre>
+        <GradoId>2</GradoId>
+    </Materia>
+</Root>

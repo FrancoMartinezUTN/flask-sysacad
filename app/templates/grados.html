@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head><title>Grados y Materias</title></head>
+<body>
+    <h1>Lista de Grados</h1>
+    <ul>
+        {% for grado in grados %}
+            <li>{{ grado.id }} - {{ grado.nombre }}</li>
+        {% endfor %}
+    </ul>
+    <h1>Lista de Materias</h1>
+    <ul>
+        {% for materia in materias %}
+            <li>{{ materia.id }} - {{ materia.nombre }} (Grado {{ materia.grado_id }})</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
