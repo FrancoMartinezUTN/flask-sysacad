@@ -1,5 +1,5 @@
-
-import os
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts')))
 import xml.etree.ElementTree as ET
 from app import create_app, db
 from app.models import Materia
