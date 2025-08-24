@@ -1,15 +1,9 @@
-from app import db
+from app.db import db
+
 
 class Materia(db.Model):
-    __tablename__ = 'materias'
+    __tablename__ = 'materia'
 
     id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(100), nullable=False, unique=True)
-    anio = db.Column(db.Integer, nullable=False)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'nombre': self.nombre,
-            'anio': self.anio
-        }
+    nombre = db.Column(db.String(100), nullable=False)
+    codigo = db.Column(db.String(20), nullable=False, unique=True)
