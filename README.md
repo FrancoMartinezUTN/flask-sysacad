@@ -24,8 +24,11 @@ Arquitectura **multicapa**, **PostgreSQL** y **SQLAlchemy**. Preparado para trab
 - Archivo `.env` configurado (ver `.env.example`)
 
 ---
-
-## ​ Instalación (Windows / Linux)
+## ​ Integrantes
+- Martinez Franco
+- Mulena Adrian
+- Ochoa Camila
+## ​Uso de IA: Chat GPT, GROK
 
 ### 1) Clonar el repositorio
 ```bash
