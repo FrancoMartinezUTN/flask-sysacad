@@ -28,8 +28,9 @@ Arquitectura **multicapa**, **PostgreSQL** y **SQLAlchemy**. Preparado para trab
 - Martinez Franco
 - Mulena Adrian
 - Ochoa Camila
-## ​Uso de IA: Chat GPT, GROK
-
+- Uso de IA: Chat GPT, GROK
+## ​
+---
 ### 1) Clonar el repositorio
 ```bash
 git clone https://github.com/FrancoMartinezUTN/flask-sysacad.git
