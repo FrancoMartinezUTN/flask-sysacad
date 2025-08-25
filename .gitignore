@@ -1,18 +1,31 @@
-# Entorno virtual
-venv/
-
-# Config .env local
+# Entorno / variables
 .env
+.venv/
+venv/
+env/
+ENV/
 
-# Archivos cache de Python
+# Bytecode y cachés
 __pycache__/
+*.py[cod]
 *.pyc
-*.pyo
-*.pyd
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
 
-# VSCode
+# Distribución
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Flask / webassets
+instance/
+.webassets-cache
+
+# IDE / SO
 .vscode/
-
-# Archivos de sistema
+.idea/
 .DS_Store
 Thumbs.db
