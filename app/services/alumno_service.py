@@ -6,10 +6,12 @@ def get_alumnos():
 
 def create_alumno(data):
     a = Alumno(
+        legajo=data.get("legajo"),          
         nombre=data["nombre"],
         apellido=data["apellido"],
         dni=data["dni"],
         email=data["email"],
+        facultad=data.get("facultad"),         
         fecha_nacimiento=data.get("fecha_nacimiento"),
         carrera=data.get("carrera"),
         anio_ingreso=data.get("anio_ingreso"),
