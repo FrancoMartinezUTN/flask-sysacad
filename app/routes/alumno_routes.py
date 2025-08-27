@@ -1,4 +1,3 @@
-```python
 from flask import Blueprint, jsonify, request, abort, send_file
 from io import BytesIO
 
@@ -49,5 +48,3 @@ def alumno_ficha_pdf(alumno_id: int):
         as_attachment=False,
         download_name=f"ficha_alumno_{alumno_id}.pdf"
     )
-```
-
