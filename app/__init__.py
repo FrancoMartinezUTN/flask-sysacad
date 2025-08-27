@@ -1,27 +1,30 @@
 import os
 from flask import Flask
+from dotenv import load_dotenv
 from app.db import db
 
 def create_app():
+    load_dotenv()  # lee .env en la raíz
     app = Flask(__name__)
 
-    
-    context = os.getenv('FLASK_CONTEXT', 'development')
+    uri = os.getenv("SQLALCHEMY_DATABASE_URI")
+    if not uri:
+        # fallback por contexto (opcional)
+        ctx = (os.getenv("FLASK_CONTEXT") or "development").lower()
+        if ctx in ("development", "dev"):
+            uri = os.getenv("DEV_DATABASE_URI", "sqlite:///sysacad_dev.db")
 
-    from app.config.entornos import factory
-    app.config.from_object(factory(context))
+    if not uri:
+        raise RuntimeError("No hay cadena de conexión. Definí SQLALCHEMY_DATABASE_URI en .env")
 
-    # Inicializar la base de datos
+    app.config["SQLALCHEMY_DATABASE_URI"] = uri
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
+
     db.init_app(app)
 
-    # Registrar blueprints
+    # registra blueprints que ya existan
     from app.routes.alumno_routes import alumno_bp
-    from app.routes.materia_routes import materia_bp
     app.register_blueprint(alumno_bp)
-    app.register_blueprint(materia_bp)
-
-    # Registrar comandos CLI personalizados
-    from app.cli import register_cli
-    register_cli(app)
 
     return app
