@@ -1,7 +1,8 @@
-from app.database import Base, engine
-from app.models.alumno import Alumno
+from app import create_app
+from app.db import db
 
 if __name__ == "__main__":
-    print("🚧 Creando tablas en la base de datos...")
-    Base.metadata.create_all(bind=engine)
-    print("✅ Tablas creadas exitosamente.")
+    app = create_app()
+    with app.app_context():
+        db.create_all()
+        print("Tablas creadas/actualizadas.")

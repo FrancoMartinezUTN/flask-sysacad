@@ -1,73 +1,43 @@
 import pandas as pd
-import logging
-from sqlalchemy.orm import Session
-from app.database import SessionLocal
+from app import create_app
+from app.db import db
 from app.models.alumno import Alumno
 
-# Configuración básica de logging
-logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
+def importar_alumnos(csv_path: str):
+    app = create_app()
+    with app.app_context():
+        df = pd.read_csv(csv_path, dtype=str).fillna("")
 
-def importar_alumnos_csv(path_csv: str):
-    """Importa alumnos desde un archivo CSV a la base de datos."""
-    session: Session = None
-    try:
-        logging.info("🚀 Iniciando importación desde %s...", path_csv)
+        # DNIs existentes para evitar duplicados
+        existentes = {dni for (dni,) in db.session.query(Alumno.dni).all()}
 
-        # Leer archivo CSV
-        df = pd.read_csv(path_csv)
-
-        # Abrir sesión con la base de datos
-        session = SessionLocal()
-
-        # Leer DNIs ya existentes desde la base
-        dnis_existentes = set(str(dni) for (dni,) in session.query(Alumno.dni).all())
-
-        alumnos_nuevos = []
-        nuevos = 0
-
-        # Procesar cada fila
+        nuevos = []
         for _, row in df.iterrows():
-            dni = str(row['nro_documento'])
+            dni = row.get("dni", "").strip()
+            if not dni or dni in existentes:
+                continue
 
-            if dni not in dnis_existentes:
-                # Limpiar nombre y apellido para email
-                nombre_clean = row['nombre'].lower().replace(" ", "")
-                apellido_clean = row['apellido'].lower().replace(" ", "")
-                email_generado = f"{nombre_clean}.{apellido_clean}.{dni}@mail.com"
+            email = (row.get("email") or f"{row.get('nombre','').strip()}.{row.get('apellido','').strip()}@utn.edu").lower()
 
-                alumno = Alumno(
-                    nombre=row['nombre'],
-                    apellido=row['apellido'],
-                    dni=dni,
-                    email=email_generado,
-                    fecha_nacimiento=row['fecha_nacimiento'],
-                    carrera="Ingeniería en Sistemas",
-                    año_ingreso=int(str(row['fecha_ingreso'])[:4])
-                )
-                alumnos_nuevos.append(alumno)
-                dnis_existentes.add(dni)
-                nuevos += 1
+            a = Alumno(
+                nombre=row.get("nombre","").strip(),
+                apellido=row.get("apellido","").strip(),
+                dni=dni,
+                email=email,
+                # si tenés estos campos en el CSV, mapéalos:
+                # fecha_nacimiento=pd.to_datetime(row.get("fecha_nacimiento"), errors="coerce"),
+                carrera=row.get("carrera","").strip(),
+                anio_ingreso=int(row["anio_ingreso"]) if str(row.get("anio_ingreso","")).isdigit() else None,
+            )
+            nuevos.append(a)
 
-        logging.info("✅ Se importarán %d alumnos nuevos (sin duplicados).", nuevos)
-
-        if alumnos_nuevos:
-            session.bulk_save_objects(alumnos_nuevos)
-            session.commit()
-            logging.info("✅ Importación finalizada y guardada en la base de datos.")
+        if nuevos:
+            db.session.bulk_save_objects(nuevos)
+            db.session.commit()
+            print(f"Importados {len(nuevos)} alumnos nuevos.")
         else:
-            logging.warning("⚠️ No hay alumnos nuevos para importar.")
-
-    except Exception as e:
-        logging.error("❌ Error durante la importación: %s", e)
-        if session:
-            session.rollback()
-    finally:
-        if session:
-            session.close()
+            print("No hay alumnos nuevos para importar.")
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) != 2:
-        logging.error("Debe indicar la ruta del archivo CSV como argumento.")
-    else:
-        importar_alumnos_csv(sys.argv[1])
+    # ejemplo: python -m app.importers.importar_alumnos alumnos.csv
+    importar_alumnos("alumnos.csv")
