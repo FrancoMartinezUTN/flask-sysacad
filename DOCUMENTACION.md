@@ -115,6 +115,109 @@ El proyecto incluye un directorio `docs/` donde se almacena el archivo `Document
 
 ---
 
+## 🧩 Alcance del microservicio_alumno
+
+El **microservicio_alumno** se encarga de centralizar la lógica relacionada con los datos básicos de los alumnos del sistema Sysacad.
+
+### Responsabilidades principales
+
+- Gestionar el **ciclo de vida** de un alumno:
+  - Alta (creación)
+  - Consulta
+  - Actualización
+  - Baja (eliminación lógica o física, según se defina)
+- Exponer endpoints **REST** que devuelven y reciben información de alumnos en formato **JSON**.
+- Validar datos básicos antes de persistirlos (por ejemplo: formato de email, unicidad de DNI).
+- Servir como **fuente de verdad** de los datos de alumno para otros módulos o microservicios.
+
+### Fuera de alcance (otros módulos / microservicios)
+
+- Gestión de inscripciones a materias y cursadas.
+- Gestión de carreras, planes de estudio y correlatividades.
+- Procesos administrativos generales (pagos, estados de deuda, legajos administrativos).
+- Reportes globales que combinen alumnos + materias + notas + pagos.
+
+> 🧠 En resumen: este microservicio se focaliza en “**quién es**” el alumno (sus datos maestros), no en “**qué hace**” en el sistema.
+
+---
+
+## 🔗 Endpoints principales del microservicio_alumno
+
+A continuación se describen los endpoints clave asociados a alumnos.  
+Se distinguen los **ya implementados** y los **previstos** para futuras iteraciones.
+
+### ✅ Endpoints actualmente implementados
+
+> Basados en `app/routes/alumno_routes.py`.
+
+| Método | Ruta       | Descripción                                      | Estado        |
+|--------|-----------|--------------------------------------------------|---------------|
+| GET    | `/alumnos` | Devuelve el listado de alumnos.                 | Implementado  |
+| POST   | `/alumnos` | Crea un nuevo alumno a partir de un JSON válido.| Implementado  |
+
+### 🚧 Endpoints previstos / roadmap
+
+> Estos endpoints sirven como guía de evolución del microservicio.
+
+| Método | Ruta                       | Descripción                                                                    |
+|--------|----------------------------|--------------------------------------------------------------------------------|
+| GET    | `/alumnos/<id>`           | Obtiene el detalle de un alumno por su identificador interno.                 |
+| PUT    | `/alumnos/<id>`           | Actualiza los datos básicos de un alumno existente.                           |
+| DELETE | `/alumnos/<id>`           | Elimina (lógica o físicamente) un alumno.                                     |
+| GET    | `/alumnos/<id>/ficha`     | Devuelve la ficha del alumno en formato JSON (datos consolidados).           |
+| GET    | `/alumnos/<id>/ficha.pdf` | Devuelve la ficha del alumno en formato PDF (para impresión o descarga).     |
+
+> 🔎 Aunque algunos endpoints aún no estén desarrollados, dejarlos documentados alinea al equipo con la visión de arquitectura y facilita el diseño de otros microservicios.
+
+---
+
+## ⚙️ Configuración y variables de entorno para el microservicio_alumno
+
+El comportamiento del microservicio depende de variables de entorno, leídas desde `.env` en desarrollo o desde el entorno del sistema en producción.
+
+| Variable                  | Obligatoria | Entorno      | Descripción                                                                 |
+|---------------------------|------------|--------------|-----------------------------------------------------------------------------|
+| `FLASK_CONTEXT`           | No         | Todos        | Indica el contexto: `development` / `production`. Default: `development`.  |
+| `DEV_DATABASE_URI`        | No         | Desarrollo   | URI de conexión a la base de datos de desarrollo (PostgreSQL local).       |
+| `SQLALCHEMY_DATABASE_URI` | Sí (prod)  | Producción   | URI de conexión a la base principal en entorno productivo.                 |
+| `SECRET_KEY`              | Sí         | Todos        | Clave secreta de Flask para firmar cookies y sesiones.                     |
+| `FLASK_DEBUG`             | No         | Desarrollo   | `True` para debug en local; debe estar desactivado en producción.          |
+
+> 🔐 Buenas prácticas:
+> - Nunca commitear valores reales de `SECRET_KEY` ni credenciales de base de datos.
+> - En producción, usar siempre variables de entorno o un gestor de secretos.
+> - Mantener `.env` fuera del control de versiones (ya configurado en `.gitignore`).
+
+---
+
+## 🔐 Verificación rápida de seguridad
+
+El proyecto incluye un script auxiliar para validar aspectos mínimos de seguridad en la configuración de Flask.
+
+### Script: `verify_security_fixes.py`
+
+Este script verifica que:
+
+- La aplicación **no arranca** si falta `SECRET_KEY`.
+- El modo **debug está desactivado por defecto**.
+- La aplicación **arranca correctamente** con una configuración válida.
+
+### Cómo ejecutarlo
+
+En la raíz del proyecto, con el entorno virtual activo:
+
+```bash
+python verify_security_fixes.py
+```
+
+Si todas las pruebas pasan, se mostrará un resumen con mensajes `PASS` indicando que:
+
+- La app falla correctamente cuando falta `SECRET_KEY`.
+- El modo debug por defecto es `False`.
+- Con una configuración válida, la app inicia sin problemas.
+
+---
+
 ## 📈 Prueba de carga con k6 para `/alumnos`
 
 Esta sección documenta la prueba de carga sobre el endpoint `GET /alumnos` utilizando **k6**, basada en el script `spike_tests.js` brindado por la cátedra y adaptado al proyecto Flask-Sysacad.
