@@ -1,38 +1,28 @@
-import http from "k6/http";
-import { Trend } from "k6/metrics";
-import { check } from "k6";
-
-const statusTrend = new Trend("status_codes");
+import http from 'k6/http';
+import { check, sleep } from 'k6';
 
 export const options = {
-    // Escenario de carga básico para desarrollo local
-    stages: [
-        { duration: "10s", target: 100 },  // sube hasta 100 usuarios virtuales
-        { duration: "20s", target: 100 },  // mantiene 100
-        { duration: "10s", target: 0 },    // baja a 0
-    ],
-    // Para http://localhost NO hace falta TLS:
-    // insecureSkipTLSVerify: true,
+  stages: [
+    { duration: '10s', target: 10 },   // subida suave
+    { duration: '20s', target: 100 },  // carga sostenida
+    { duration: '10s', target: 0 },    // bajada
+  ],
+  thresholds: {
+    http_req_duration: ['p(95)<500'],  // 95% de las requests < 500 ms
+    http_req_failed: ['rate<0.01'],    // menos del 1% de errores
+  },
 };
 
-// Endpoint del microservicio_alumno
-
-const BASE_URL = "http://localhost:5000/alumnos";
+const BASE_URL = __ENV.SYSACAD_BASE_URL || 'http://127.0.0.1:5000';
 
 export default function () {
-    // Para Sysacad usamos GET sobre el listado de alumnos
-    const res = http.get(BASE_URL);
+  const res = http.get(`${BASE_URL}/alumnos`);
 
-    // Registramos el código de estado en la métrica
-    statusTrend.add(res.status);
+  check(res, {
+    'status 200': (r) => r.status === 200,
+    'response is JSON': (r) =>
+      String(r.headers['Content-Type'] || '').includes('application/json'),
+  });
 
-    // Mismos códigos que usa la cátedra en sus ejemplos
-    check(res, {
-        "status is 200": (r) => r.status === 200,
-        "status is 409": (r) => r.status === 409,
-        "status is 404": (r) => r.status === 404,
-        "status is 400": (r) => r.status === 400,
-        "status is 429": (r) => r.status === 429,
-        "status is 500": (r) => r.status === 500,
-    });
+  sleep(1);
 }
