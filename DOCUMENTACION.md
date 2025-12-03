@@ -6,7 +6,7 @@ Este archivo tiene como objetivo dejar asentada toda la información técnica ne
 
 ## 📁 Estructura del Proyecto
 
-```
+```text
 flask-sysacad/
 ├── app/                    # Contiene la lógica principal de la aplicación
 │   ├── models/             # Modelos de datos (ORM SQLAlchemy)
@@ -31,9 +31,9 @@ flask-sysacad/
 ### `Alumno` (en `app/models/alumno_model.py`)
 
 ```python
-id: int                  # Identificador único, autoincremental
-nombre: str             # Nombre completo del alumno
-email: str              # Correo electrónico único
+id: int          # Identificador único, autoincremental
+nombre: str      # Nombre completo del alumno
+email: str       # Correo electrónico único
 ```
 
 También incluye el método `to_dict()` que devuelve un diccionario con los datos del alumno. Esto facilita el trabajo en las respuestas JSON de la API.
@@ -99,7 +99,7 @@ with app.app_context():
 app.run(debug=True)
 ```
 
-> ✅ **¿Qué hace este archivo?** Arranca la aplicación. Crea las tablas si no existen y lanza el servidor local ([http://127.0.0.1:5000](http://127.0.0.1:5000)).
+> ✅ **¿Qué hace este archivo?** Arranca la aplicación. Crea las tablas si no existen y lanza el servidor local (<http://127.0.0.1:5000>).
 
 ---
 
@@ -107,13 +107,91 @@ app.run(debug=True)
 
 El proyecto incluye un directorio `docs/` donde se almacena el archivo `Documentacion Sysacad.pdf` como referencia complementaria. Este material:
 
-* Sirve como respaldo de decisiones técnicas
-* Puede ser consultado offline
-* No contiene contraseñas ni datos sensibles
+- Sirve como respaldo de decisiones técnicas
+- Puede ser consultado offline
+- No contiene contraseñas ni datos sensibles
 
 > ✅ **Recomendación:** mantener la versión más reciente de este PDF en el repositorio, pero sin sustituir la documentación Markdown colaborativa.
 
 ---
 
-Con esto queda documentado el estado actual del sistema. A partir de aquí, el equipo puede continuar desarrollando nuevas funcionalidades con claridad.
+## 📈 Prueba de carga con k6 para `/alumnos`
 
+Esta sección documenta la prueba de carga sobre el endpoint `GET /alumnos` utilizando **k6**, basada en el script `spike_tests.js` brindado por la cátedra y adaptado al proyecto Flask-Sysacad.
+
+### ✅ Requisitos previos
+
+- k6 instalado y accesible desde la consola (`k6 version`).
+- Entorno virtual de Python creado y activado (`.venv`).
+- Variables de entorno configuradas correctamente (especialmente `SECRET_KEY` y la URI de base de datos).
+- Base de datos PostgreSQL `sysacaddb` levantada.
+- Aplicación Flask ejecutándose en:
+
+```text
+http://localhost:5000
+```
+
+### 🧩 Pasos para ejecutar la prueba de carga
+
+1. **Activar el entorno virtual** en la raíz del proyecto:
+
+   ```powershell
+   .\.venv\Scripts\Activate.ps1
+   ```
+
+2. **Levantar la aplicación Flask**:
+
+   ```powershell
+   python run.py
+   ```
+
+   Esto deja la API escuchando en `http://localhost:5000`.
+
+3. **En otra terminal**, ubicarse en la raíz del proyecto y ejecutar k6:
+
+   ```powershell
+   k6 run spike_tests.js
+   ```
+
+### 🔍 Descripción del escenario de carga
+
+El archivo `spike_tests.js` define el siguiente escenario:
+
+- Ramp-up hasta **100 usuarios virtuales (VUs)** en **10 segundos**.
+- Mantiene **100 VUs** durante **20 segundos**.
+- Ramp-down a **0 VUs** en **10 segundos**.
+
+Cada VU realiza solicitudes `GET` al endpoint:
+
+```text
+http://localhost:5000/alumnos
+```
+
+El script registra:
+
+- Códigos de estado HTTP (200, 400, 404, 409, 429, 500).
+- Tiempos de respuesta (`http_req_duration`).
+- Porcentaje de requests fallidas (`http_req_failed`).
+- Métrica personalizada `status_codes` (Trend) para analizar la distribución de respuestas.
+
+### ✅ Resultado esperado
+
+En condiciones normales de funcionamiento:
+
+- La mayoría de los checks deben aparecer como `"status is 200"`.
+- La métrica `http_req_failed` debería ser `0.00%`.
+- El promedio de `http_req_duration` debe mantenerse en valores razonables para el entorno local.
+
+### 🔄 Ejecución en entorno Docker (opcional)
+
+Si el proyecto se ejecuta dentro de **Docker** y el servicio Flask se expone con otro nombre (por ejemplo `web`), se puede ajustar la constante `BASE_URL` en `spike_tests.js` para apuntar a:
+
+```js
+const BASE_URL = "http://web:5000/alumnos";
+```
+
+Esto permite que el contenedor de k6 golpee al servicio Flask dentro de la misma red de Docker.
+
+---
+
+Con esto queda documentado el estado actual del sistema. A partir de aquí, el equipo puede continuar desarrollando nuevas funcionalidades con claridad.
