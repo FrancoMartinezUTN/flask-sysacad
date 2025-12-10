@@ -1,116 +1,100 @@
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from app import db
 from app.models.alumno import Alumno
-from app.utils.cache import cache_get, cache_set, cache_delete_pattern
+from app.utils.cache import cache_get, cache_set, get_redis_connection
 
 
 # -------------------------------------------------------------------
-# Servicio de Alumnos con soporte de caché Redis
+# Conversión centralizada de Alumno -> dict
 # -------------------------------------------------------------------
+def _alumno_to_dict(alumno: Alumno) -> Dict[str, Any]:
+    """
+    Asegurate de que este dict respete la estructura que pide la cátedra.
+    Si tu modelo Alumno tiene to_dict() y ya está bien definido, podés
+    dejar simplemente `return alumno.to_dict()`.
+    """
+    if hasattr(alumno, "to_dict"):
+        return alumno.to_dict()
+
+    return {
+        "id": alumno.id,
+        "dni": alumno.dni,
+        "nombre": alumno.nombre,
+        "apellido": alumno.apellido,
+        "email": getattr(alumno, "email", None),
+        "facultad": getattr(alumno, "facultad", None),
+        "carrera": getattr(alumno, "carrera", None),
+        "anio_ingreso": getattr(alumno, "anio_ingreso", None),
+    }
 
 
-def _alumno_to_dict(alumno: Alumno) -> dict:
+# -------------------------------------------------------------------
+# Servicios con soporte de caché Redis
+# -------------------------------------------------------------------
+def obtener_todos(page: int = 1, per_page: int = 20) -> Dict[str, Any]:
     """
-    Punto único para convertir un Alumno a dict.
-    Si mañana cambia la representación, se toca solo acá.
-    """
-    return alumno.to_dict()  # Ajustar si tu modelo usa otro método
+    Retorna la lista de alumnos paginada.
+    Estructura JSON:
 
+    {
+        "items": [...],
+        "page": n,
+        "pages": n,
+        "total": n,
+        "per_page": n
+    }
 
-def obtener_todos() -> list[dict]:
+    Usa Redis como caché si está disponible.
     """
-    Retorna la lista de alumnos.
-    - Primero intenta leer desde Redis.
-    - Si no hay datos en cache, consulta la base y guarda el resultado.
-    """
-    cache_key = "alumnos:todos"
+    cache_key = f"alumnos_page_{page}_per_{per_page}"
     cached = cache_get(cache_key)
 
-    if cached is not None:
-        print("✅ Cache hit: alumnos:todos (lista de alumnos desde Redis).")
+    if cached:
+        print(f"✅ Cache hit: {cache_key}")
         return cached
 
-    print("⚙️ Cache miss: alumnos:todos – consultando base de datos.")
-    alumnos = Alumno.query.all()
-    data = [_alumno_to_dict(a) for a in alumnos]
+    print(f"⚙️ Cache miss: {cache_key}")
+    p = Alumno.query.paginate(page=page, per_page=per_page, error_out=False)
 
-    # TTL = 120 segundos (2 minutos)
-    cache_set(cache_key, data, ttl_seconds=120)
+    data = {
+        "items": [_alumno_to_dict(a) for a in p.items],
+        "page": p.page,
+        "pages": p.pages,
+        "total": p.total,
+        "per_page": p.per_page,
+    }
 
+    cache_set(cache_key, data, ttl=120)  # 2 minutos
     return data
 
 
-def obtener_por_id(alumno_id: int) -> Optional[dict]:
+def obtener_por_id(alumno_id: int) -> Optional[Dict[str, Any]]:
     """
-    Retorna un alumno por ID.
-    - Usa cache por alumno individual: clave alumno:<id>.
+    Retorna un alumno por ID (sin caché por simplicidad).
     """
-    cache_key = f"alumno:{alumno_id}"
-    cached = cache_get(cache_key)
-
-    if cached is not None:
-        print(f"✅ Cache hit: {cache_key} (alumno desde Redis).")
-        return cached
-
-    print(f"⚙️ Cache miss: {cache_key} – consultando base de datos.")
     alumno = Alumno.query.get(alumno_id)
     if not alumno:
         return None
-
-    data = _alumno_to_dict(alumno)
-
-    # TTL un poco más largo para objetos individuales (5 minutos)
-    cache_set(cache_key, data, ttl_seconds=300)
-
-    return data
+    return _alumno_to_dict(alumno)
 
 
-def create_alumno(data: dict) -> dict:
+def crear_alumno(data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Crea un nuevo alumno y limpia la caché relacionada:
-    - Lista de alumnos.
-    - Cache puntual del alumno recién creado (por las dudas).
+    Crea un nuevo alumno y limpia la caché de listas de alumnos.
+    Lanza IntegrityError si viola UNIQUE (por ejemplo, DNI duplicado).
     """
     nuevo = Alumno(**data)
     db.session.add(nuevo)
     db.session.commit()
 
-    data_dict = _alumno_to_dict(nuevo)
+    # Invalidar TODAS las páginas cacheadas
+    r = get_redis_connection()
+    if r:
+        try:
+            for key in r.scan_iter("alumnos_page_*"):
+                r.delete(key)
+        except Exception as exc:
+            print(f"⚠️ Error limpiando caché de alumnos: {exc}")
 
-    # Invalidar cache relacionada
-    # - lista global
-    cache_delete_pattern("alumnos:todos")
-    # - por si ya existía algo cacheado con ese id
-    cache_delete_pattern(f"alumno:{nuevo.id}")
-
-    return data_dict
-
-
-# -------------------------------------------------------------------
-# Aliases para compatibilidad con alumno_routes
-# -------------------------------------------------------------------
-
-
-def crear_alumno(data: dict) -> dict:
-    """
-    Alias de create_alumno para mantener compatibilidad con
-    código existente que aún llame a crear_alumno().
-    """
-    return create_alumno(data)
-
-
-def get_alumnos() -> list[dict]:
-    """
-    Alias en inglés para el listado de alumnos,
-    usado por algunas rutas o capas superiores.
-    """
-    return obtener_todos()
-
-
-def get_alumno_by_id(alumno_id: int) -> Optional[dict]:
-    """
-    Alias en inglés para obtener alumno por ID,
-    usado por alumno_routes.
-    """
-    return obtener_por_id(alumno_id)
+    return _alumno_to_dict(nuevo)
