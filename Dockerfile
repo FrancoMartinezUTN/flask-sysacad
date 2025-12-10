@@ -1,28 +1,23 @@
-FROM python:3.10-slim-bullseye
+# Imagen base oficial de uv + Python 3.12 (requisito de la cátedra)
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm
 
-ENV FLASK_CONTEXT=production
-ENV PYTHONUNBUFFERED=1
-ENV PATH=$PATH:/home/sysacad/.local/bin
+# Directorio de trabajo dentro del contenedor
+WORKDIR /app
 
-RUN useradd --create-home --home-dir /home/sysacad sysacad
-RUN apt-get update
-RUN apt-get install -y python3-dev build-essential libpq-dev python3-psycopg2
-RUN apt-get install -y curl htop iputils-ping
-RUN apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
-RUN rm -rf /var/lib/apt/lists/*
+# Copiamos solo requirements primero para aprovechar cache de capas
+COPY requirements.txt .
 
-WORKDIR /home/sysacad
+# Instalamos dependencias usando uv (modo recomendado)
+RUN uv pip install --system -r requirements.txt
 
-USER sysacad
-RUN mkdir app
+# Copiamos el resto del código de la app
+COPY . .
 
-COPY ./app ./app
-COPY ./app.py .
-
-ADD requirements.txt ./requirements.txt
-
-RUN pip install --no-cache-dir -r requirements.txt
-
+# Exponemos el puerto donde va a escuchar el microservicio
 EXPOSE 5000
 
-CMD [ "python", "./app.py" ]
+# Comando de arranque:
+#   - gunicorn como servidor de aplicaciones
+#   - bindea a 0.0.0.0:5000
+#   - usa el WSGI "wsgi:app" que definimos en wsgi.py
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "wsgi:app"]

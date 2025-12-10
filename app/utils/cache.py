@@ -1,48 +1,53 @@
+
 import json
-import logging
 import os
+from typing import Any, Optional
 
 import redis
 
-_logger = logging.getLogger(__name__)
-_redis_client = None
+# Cache interno del cliente y flag para no insistir cuando Redis no está disponible
+_redis_client: Optional[redis.Redis] = None
+_redis_disabled: bool = False
 
 
-def _get_redis_client():
+def get_redis_connection() -> Optional[redis.Redis]:
     """
-    Devuelve un cliente Redis singleton.
-    Si no se puede conectar, devuelve None y la cache queda deshabilitada
-    sin romper la app.
+    Devuelve una conexión a Redis o None si no está disponible.
+
+    Usa la variable de entorno REDIS_URL. Ejemplos:
+    - redis://localhost:6379/0          (desarrollo local)
+    - redis://redis-sysacad:6379/0      (docker-compose, servicio 'redis-sysacad')
     """
-    global _redis_client
+    global _redis_client, _redis_disabled
+
+    if _redis_disabled:
+        return None
 
     if _redis_client is not None:
         return _redis_client
 
-    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
     try:
-        client = redis.Redis.from_url(redis_url, decode_responses=True)
-        # Verificación rápida de conexión
+        client = redis.from_url(redis_url, decode_responses=False)
         client.ping()
-        _logger.info("Conectado a Redis en %s", redis_url)
+        print(f"✅ Redis conectado: {redis_url}")
         _redis_client = client
-    except Exception as exc:  # noqa: BLE001
-        _logger.warning(
-            "No se pudo conectar a Redis (%s). La cache queda deshabilitada.",
-            exc,
-        )
+        return _redis_client
+    except Exception as exc:
+        # No hay Redis: se desactiva cache de forma segura
+        print(f"⚠️ Redis no disponible, se desactiva caché. Detalle: {exc}")
         _redis_client = None
+        _redis_disabled = True
+        return None
 
-    return _redis_client
 
-
-def cache_get(key: str):
+def cache_get(key: str) -> Optional[Any]:
     """
-    Obtiene un valor JSON desde Redis.
-    Devuelve el objeto Python o None si no existe / falla.
+    Lee un valor desde Redis (JSON serializado).
+    Devuelve None si no hay cache o en caso de error.
     """
-    client = _get_redis_client()
+    client = get_redis_connection()
     if not client:
         return None
 
@@ -51,38 +56,21 @@ def cache_get(key: str):
         if raw is None:
             return None
         return json.loads(raw)
-    except Exception:  # noqa: BLE001
-        _logger.exception("Error leyendo clave '%s' desde Redis", key)
+    except Exception as exc:
+        print(f"⚠️ Error leyendo caché [{key}]: {exc}")
         return None
 
 
-def cache_set(key: str, value, ttl_seconds: int = 60):
+def cache_set(key: str, value: Any, ttl: int = 60) -> None:
     """
-    Guarda un objeto Python como JSON en Redis con un TTL (segundos).
-    Si Redis no está disponible, no rompe la app.
+    Guarda un valor en Redis serializado como JSON con TTL en segundos.
+    Si Redis no está disponible, simplemente no hace nada.
     """
-    client = _get_redis_client()
+    client = get_redis_connection()
     if not client:
         return
 
     try:
-        payload = json.dumps(value)
-        client.setex(key, ttl_seconds, payload)
-    except Exception:  # noqa: BLE001
-        _logger.exception("Error guardando clave '%s' en Redis", key)
-
-
-def cache_delete_pattern(pattern: str):
-    """
-    Borra todas las claves que matcheen un patrón, por ejemplo:
-    'alumno:123' o 'alumno:*'
-    """
-    client = _get_redis_client()
-    if not client:
-        return
-
-    try:
-        for key in client.scan_iter(match=pattern):
-            client.delete(key)
-    except Exception:  # noqa: BLE001
-        _logger.exception("Error borrando claves por patrón '%s' en Redis", pattern)
+        client.setex(key, ttl, json.dumps(value))
+    except Exception as exc:
+        print(f"⚠️ Error escribiendo caché [{key}]: {exc}")
