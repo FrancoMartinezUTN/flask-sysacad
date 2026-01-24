@@ -1,0 +1,96 @@
+name: sysacad
+
+services:
+  postgres-sysacad:
+    image: postgres:16-alpine
+    container_name: postgres-sysacad
+    env_file:
+      - .env.docker
+    volumes:
+      - sysacad_pgdata:/var/lib/postgresql/data
+    networks:
+      - sysacad
+    # ports:
+    #   - "5432:5432"   # SECURITY: Port removed. Use `docker exec` to access DB.
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  redis-sysacad:
+    image: redis:7-alpine
+    container_name: redis-sysacad
+    command: [ "redis-server", "--save", "", "--appendonly", "no" ]
+    networks:
+      - sysacad
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  traefik-sysacad:
+    image: traefik:v3.1
+    container_name: traefik-sysacad
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+    volumes:
+      - ./traefik_dynamic.yml:/etc/traefik/dynamic.yml:ro
+    networks:
+      - sysacad
+    restart: unless-stopped
+
+  # One-shot job: crea tablas
+  sysacad-alumno-init:
+    build:
+      context: .
+    container_name: sysacad-alumno-init
+    env_file:
+      - .env.docker
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      postgres-sysacad:
+        condition: service_healthy
+      redis-sysacad:
+        condition: service_healthy
+    networks:
+      - sysacad
+    restart: "no"
+    command: [ "python", "scripts/init_db.py" ]
+
+  sysacad-alumno:
+    build:
+      context: .
+    container_name: sysacad-alumno
+    env_file:
+      - .env.docker
+    depends_on:
+      sysacad-alumno-init:
+        condition: service_completed_successfully
+      postgres-sysacad:
+        condition: service_healthy
+      redis-sysacad:
+        condition: service_healthy
+    networks:
+      - sysacad
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+networks:
+  sysacad:
+    name: sysacad
+    driver: bridge
+
+volumes:
+  sysacad_pgdata:
+    name: sysacad_pgdata

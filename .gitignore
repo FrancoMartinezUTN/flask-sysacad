@@ -34,3 +34,9 @@ Thumbs.db
 *.pdf
 instance/*.db
 
+
+.env
+
+.env.docker
+
+

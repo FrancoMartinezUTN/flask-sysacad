@@ -1,7 +1,7 @@
 import os
 from flask import Flask
 from dotenv import load_dotenv
-from app.db import db
+from app.db import db, migrate
 
 
 def create_app():
@@ -19,10 +19,11 @@ def create_app():
     # --- Configuración de base de datos ---
     uri = os.getenv("SQLALCHEMY_DATABASE_URI")
 
-    # Fallback para entorno de desarrollo
-    ctx = os.getenv("FLASK_CONTEXT", "development").lower()
-    if ctx in ("development", "dev"):
-        uri = os.getenv("DEV_DATABASE_URI", "sqlite:///sysacad_dev.db")
+    # Fallback para entorno de desarrollo SOLO si SQLALCHEMY_DATABASE_URI no está definida
+    if not uri:
+        ctx = os.getenv("FLASK_CONTEXT", "development").lower()
+        if ctx in ("development", "dev"):
+            uri = os.getenv("DEV_DATABASE_URI", "sqlite:///sysacad_dev.db")
 
     if not uri:
         raise RuntimeError("No hay cadena de conexión. Definí SQLALCHEMY_DATABASE_URI en .env")
@@ -37,6 +38,7 @@ def create_app():
 
     # --- Inicialización de extensiones ---
     db.init_app(app)
+    migrate.init_app(app, db)
 
     # --- Registro de blueprints ---
     from app.routes.alumno_routes import alumno_bp
