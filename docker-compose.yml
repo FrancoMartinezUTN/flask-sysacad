@@ -1,75 +1,96 @@
+name: sysacad
+
 services:
   postgres-sysacad:
     image: postgres:16-alpine
     container_name: postgres-sysacad
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-sysacaddb}
-      POSTGRES_USER: ${POSTGRES_USER:-franco}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+    env_file:
+      - .env.docker
     volumes:
       - sysacad_pgdata:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     networks:
       - sysacad
+    # ports:
+    #   - "5432:5432"   # SECURITY: Port removed. Use `docker exec` to access DB.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
       interval: 5s
-      timeout: 3s
-      retries: 20
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
 
   redis-sysacad:
     image: redis:7-alpine
     container_name: redis-sysacad
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    command: [ "redis-server", "--save", "", "--appendonly", "no" ]
     networks:
       - sysacad
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
-      retries: 20
-
-  sysacad-alumno:
-    build: .
-    container_name: sysacad-alumno
-    depends_on:
-      postgres-sysacad:
-        condition: service_healthy
-      redis-sysacad:
-        condition: service_healthy
-    environment:
-      FLASK_CONTEXT: ${FLASK_CONTEXT:-production}
-      SECRET_KEY: ${SECRET_KEY:?Falta SECRET_KEY en .env}
-      SQLALCHEMY_DATABASE_URI: ${SQLALCHEMY_DATABASE_URI:?Falta SQLALCHEMY_DATABASE_URI en .env}
-      REDIS_URL: ${REDIS_URL:-redis://redis-sysacad:6379/0}
-    networks:
-      - sysacad
-    ports:
-      - "${APP_PORT:-5000}:5000"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.sysacad.rule=PathPrefix(`/alumnos`)"
-      - "traefik.http.routers.sysacad.entrypoints=web"
-      - "traefik.http.services.sysacad.loadbalancer.server.port=5000"
+      retries: 15
+    restart: unless-stopped
 
   traefik-sysacad:
     image: traefik:v3.1
     container_name: traefik-sysacad
     command:
       - "--entrypoints.web.address=:80"
-      - "--providers.docker=true"
-      - "--api.dashboard=true"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
+      - "--log.level=INFO"
     ports:
-      - "${TRAEFIK_PORT:-80}:80"
-      - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"
+      - "80:80"
+    volumes:
+      - ./traefik_dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
       - sysacad
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    restart: unless-stopped
+
+  # One-shot job: crea tablas
+  sysacad-alumno-init:
+    build:
+      context: .
+    container_name: sysacad-alumno-init
+    env_file:
+      - .env.docker
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      postgres-sysacad:
+        condition: service_healthy
+      redis-sysacad:
+        condition: service_healthy
+    networks:
+      - sysacad
+    restart: "no"
+    command: [ "python", "scripts/init_db.py" ]
+
+  sysacad-alumno:
+    build:
+      context: .
+    container_name: sysacad-alumno
+    env_file:
+      - .env.docker
+    depends_on:
+      sysacad-alumno-init:
+        condition: service_completed_successfully
+      postgres-sysacad:
+        condition: service_healthy
+      redis-sysacad:
+        condition: service_healthy
+    networks:
+      - sysacad
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
 
 networks:
   sysacad:
+    name: sysacad
+    driver: bridge
 
 volumes:
   sysacad_pgdata:
+    name: sysacad_pgdata
