@@ -1,0 +1,13 @@
+http:
+  routers:
+    sysacad-alumno:
+      rule: "PathPrefix(`/alumnos`)"
+      entryPoints:
+        - web
+      service: sysacad-alumno
+
+  services:
+    sysacad-alumno:
+      loadBalancer:
+        servers:
+          - url: "http://sysacad-alumno:5000"

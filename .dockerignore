@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Environment and secrets (NEVER include in image)
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Flask instance folder (SQLite dev DB)
+instance/
+
+# Documentation (not needed in runtime)
+*.md
+*.pdf
+
+# Test files (not needed in production image)
+test/
+tests/
+spike_tests.js
+
+# Docker files (avoid recursive issues)
+docker-compose.yml
+Dockerfile
+traefik_dynamic.yml
