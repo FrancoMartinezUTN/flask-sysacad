@@ -40,3 +40,5 @@ instance/*.db
 .env.docker
 
 
+
+verification_output.txt
