@@ -32,4 +32,8 @@ jobs:
           python -m pip install pytest
 
       - name: Run tests
+        env:
+          FLASK_CONTEXT: testing
+          FLASK_SKIP_DOTENV: "1"
+          SQLALCHEMY_DATABASE_URI: "sqlite:///:memory:"
         run: pytest -q
