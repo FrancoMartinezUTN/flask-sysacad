@@ -286,4 +286,4 @@ Ver `ANALISIS_TEST_CARGA_K6.md` para resultados detallados.
 
 ## 📜 Licencia
 
-Proyecto académico - UTN FRC
+Proyecto académico - UTN FRSR
