@@ -1,275 +1,289 @@
-# 🧠 
+# 🎓 Microservicio Alumno - Flask-Sysacad
 
-## 👬🙋  Equipo 
-Martinez, Franco
-Mulena, Adrián
-Ochoa, Camila
-Asistencia IAs: GPT, Grok, Google Antigravity
+## 👥 Equipo
 
-
-## 🔧 Descripción general
-
-Este proyecto es un **microservicio de Gestión de Alumnos** desarrollado en **Flask**, con:
-
-- Arquitectura multicapa (routes → services → repositories → models).
-- Base de datos **PostgreSQL** usando **SQLAlchemy**.
-- Soporte para **importación masiva de alumnos desde CSV**.
-- Preparado para trabajo colaborativo con ramas `feature/*` y PR en GitHub.
-- Entorno virtual aislado para facilitar instalación y despliegue.
+- Martinez, Franco  
+- Mulena, Adrián  
+- Ochoa, Camila  
+- Asistencia IAs: GPT, Grok, Google Antigravity
 
 ---
 
-## 🧱 Requisitos previos
+## 📋 Descripción
 
-### ✅ Generales
+**Microservicio de Gestión de Alumnos** desarrollado en Flask, parte del sistema Sysacad de la UTN.
 
-- Python **3.12+**
-- Git
-- PostgreSQL **16+**
-- Visual Studio Code (o cualquier IDE similar)
-- (Opcional / futuro) Redis o DragonflyDB para cache/rate limit
-- k6 instalado para pruebas de carga (`k6 version` debe funcionar)
+### Características
 
----
-
-## ⚙️ Configuración por variables de entorno (12-Factor)
-
-El microservicio usa **variables de entorno** para su configuración, siguiendo buenas prácticas de 12-Factor App.
-
-Variables principales:
-
-| Variable                 | Obligatoria | Entorno     | Descripción                                                   |
-|--------------------------|------------|-------------|---------------------------------------------------------------|
-| SECRET_KEY               | Sí         | Todos       | Clave secreta de Flask (cookies, sesiones).                  |
-| SQLALCHEMY_DATABASE_URI  | Sí         | Producción  | Cadena de conexión a la base PostgreSQL.                     |
-| DEV_DATABASE_URI         | No         | Desarrollo  | Cadena de conexión en modo desarrollo.                       |
-| FLASK_CONTEXT            | No         | Todos       | `development` / `production` (por defecto `development`).     |
-| FLASK_DEBUG              | No         | Desarrollo  | `True` solo en local, vacío/False en producción.             |
-| REDIS_URL                | No         | Todos       | URL de Redis/Dragonfly (para cache/rate limit en el futuro). |
-
-### Verificación rápida de configuración y seguridad
-
-Antes de levantar la app o hacer deploy:
-
-```bash
-python verify_security_fixes.py
-```
-
-Este script valida que:
-
-- Exista `SECRET_KEY`.
-- `DEBUG` no esté forzado a activo en producción.
-- La app pueda iniciar con configuración válida.
+- Arquitectura multicapa (routes → services → repositories → models)
+- Base de datos **PostgreSQL** (producción) / **SQLite** (desarrollo/testing)
+- Importación masiva de alumnos desde CSV
+- API REST con endpoints CRUD para alumnos
+- CI/CD con GitHub Actions (Python 3.12 y 3.13)
+- Containerizado con Docker y Docker Compose
 
 ---
 
-## 💻 Instalación local (Windows / Linux)
+## 🧱 Requisitos Previos
 
-### 🧩 1. Clonar el repositorio
+| Requisito | Versión Mínima |
+|-----------|----------------|
+| Python | 3.12+ |
+| Git | 2.x |
+| Docker (opcional) | 24.x |
+| Docker Compose (opcional) | 2.x |
+| PostgreSQL (producción) | 16+ |
+
+---
+
+## ⚡ Inicio Rápido
+
+### 1. Clonar el repositorio
 
 ```bash
 git clone https://github.com/FrancoMartinezUTN/flask-sysacad.git
 cd flask-sysacad
 ```
 
-### 🧰 2. Crear y activar entorno virtual
+### 2. Crear entorno virtual
 
 **Windows (PowerShell):**
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
-**Linux / macOS (bash):**
+**Linux/macOS (bash):**
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### 📦 3. Instalar dependencias
+### 3. Configurar variables de entorno
+
+Copiar el archivo de ejemplo y editar:
 
 ```bash
-pip install -r requirements.txt
-python -m pip install pandas
+cp .env.example .env
+# Editar .env con tus credenciales
 ```
 
-> `pandas` se utiliza para la importación masiva de alumnos desde CSV.
+> ⚠️ **Importante:** `.env` está en `.gitignore` y nunca debe commitearse con credenciales reales.
 
----
-
-## 🚀 Ejecución local (sin Docker)
-
-Con el entorno virtual activado y las variables de entorno configuradas:
+### 4. Ejecutar la aplicación
 
 ```powershell
 python run.py
 ```
 
-La aplicación queda disponible en:
-
-- `http://127.0.0.1:5000`
+La API estará disponible en: `http://127.0.0.1:5000`
 
 ---
 
-## 🐳 Ejecución y compilación en Docker
-
-> Ajustar si se dispone de un `docker-compose.yml` específico. A modo general:
-
-### 1. Build de la imagen
-
-Desde la raíz del proyecto (donde está el `Dockerfile`):
+## 🐳 Ejecución con Docker Compose
 
 ```bash
-docker build -t sysacad-alumno .
+# Construir y levantar todos los servicios
+docker compose up -d --build
+
+# Verificar estado
+docker compose ps
+
+# Ver logs
+docker compose logs -f sysacad-alumno
+
+# Detener
+docker compose down
 ```
 
-### 2. Ejecución del contenedor
+### Endpoints disponibles
+
+| Endpoint | Puerto | Descripción |
+|----------|--------|-------------|
+| `http://localhost/alumnos` | 80 (Traefik) | API de alumnos (producción) |
+| `http://localhost:5000/alumnos` | 5000 | API de alumnos (directo) |
+
+### Verificar base de datos
 
 ```bash
-docker run -d   --name sysacad-alumno   -p 5000:5000   -e SECRET_KEY="prod-secret"   -e SQLALCHEMY_DATABASE_URI="postgresql+psycopg2://user:pass@host:5432/sysacaddb"   sysacad-alumno
-```
+# Conectar a PostgreSQL
+docker exec -it postgres-sysacad psql -U franco -d sysacaddb
 
-El microservicio quedará expuesto en `http://localhost:5000`.
+# Listar tablas
+\dt
 
-Si se utiliza `docker compose`, el flujo típico es:
+# Ver datos de alumnos
+SELECT * FROM alumnos LIMIT 5;
 
-```bash
-docker compose build
-docker compose up
+# Salir
+\q
 ```
 
 ---
 
-## 📥 Importación de alumnos desde CSV
+## 🧪 Tests
 
-Este módulo permite **importar grandes volúmenes de alumnos** desde un archivo `.csv` a la base de datos PostgreSQL.
+### Ejecutar tests localmente (modo CI-like)
 
-Características principales:
+Los tests usan SQLite en memoria para no depender de PostgreSQL.
 
-- Lectura eficiente con **pandas**.
-- Inserción masiva con `bulk_save_objects`.
-- Evita **duplicados por DNI**.
-- Inserta solo registros nuevos.
-- Generación automática de emails.
-- Preparado para escalar a **miles/millones de filas**.
-- Desarrollado siguiendo principios **DRY, KISS, YAGNI**.
+**Windows (PowerShell):**
 
-### 🧱 1. Crear las tablas necesarias
+```powershell
+# Opción 1: Configurar variables y ejecutar
+$env:FLASK_CONTEXT='testing'
+$env:FLASK_SKIP_DOTENV='1'
+$env:SQLALCHEMY_DATABASE_URI='sqlite:///:memory:'
+python -m pytest -q
+
+# Opción 2: Usar el script de verificación
+.\scripts\verify_local.ps1
+```
+
+**Linux/macOS (bash):**
 
 ```bash
+# Opción 1: Configurar variables y ejecutar
+export FLASK_CONTEXT=testing
+export FLASK_SKIP_DOTENV=1
+export SQLALCHEMY_DATABASE_URI='sqlite:///:memory:'
+python -m pytest -q
+
+# Opción 2: Usar el script de verificación
+./scripts/verify_local.sh
+```
+
+### GitHub Actions (CI)
+
+El workflow `.github/workflows/ci.yml` ejecuta automáticamente:
+
+- Tests en Python 3.12 y 3.13
+- Variables de entorno para testing (sin necesidad de `.env`)
+
+---
+
+## ⚙️ Variables de Entorno
+
+| Variable | Obligatoria | Entorno | Descripción |
+|----------|-------------|---------|-------------|
+| `SECRET_KEY` | Sí (prod) | Todos | Clave secreta de Flask |
+| `SQLALCHEMY_DATABASE_URI` | Sí (prod) | Producción | URI de conexión PostgreSQL |
+| `DEV_DATABASE_URI` | No | Desarrollo | URI de desarrollo (fallback: SQLite file) |
+| `TEST_DATABASE_URI` | No | Testing | URI de testing (fallback: SQLite memory) |
+| `FLASK_CONTEXT` | No | Todos | `development` / `testing` / `production` |
+| `FLASK_SKIP_DOTENV` | No | CI | `1` para no cargar `.env` |
+
+---
+
+## 📁 Estructura del Proyecto
+
+```
+flask-sysacad/
+├── app/
+│   ├── __init__.py          # App factory (create_app)
+│   ├── db.py                 # SQLAlchemy + Migrate
+│   ├── models/               # Modelos ORM
+│   │   └── alumno.py
+│   ├── routes/               # Endpoints REST
+│   │   └── alumno_routes.py
+│   ├── services/             # Lógica de negocio
+│   │   └── alumno_service.py
+│   ├── repositories/         # Acceso a datos
+│   │   └── alumno_repository.py
+│   ├── dto/                  # Data Transfer Objects
+│   ├── importers/            # Importadores CSV
+│   │   └── importar_alumnos.py
+│   └── ...
+├── test/
+│   ├── test_app.py           # Test de app factory
+│   ├── test_db.py            # Test de conexión DB
+│   └── test_alumno_api.py    # Tests de API
+├── scripts/
+│   ├── init_db.py            # Inicialización DB (Docker)
+│   ├── verify_local.ps1      # Verificación local (Windows)
+│   └── verify_local.sh       # Verificación local (Linux)
+├── .github/workflows/
+│   └── ci.yml                # GitHub Actions CI
+├── .env.example              # Ejemplo de variables
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## ✅ Checklist de Verificación
+
+Antes de hacer push o crear un PR, verificar:
+
+```bash
+# 1. Git status limpio (sin cambios pendientes)
+git status
+
+# 2. Tests pasan
+python -m pytest -q
+
+# 3. No hay referencias a módulos no-alumno
+git grep -n -E "import_materias|import_planes|archivados_xml" -- .
+# (debe estar vacío)
+
+# 4. Docker funciona (si aplica)
+docker compose ps
+
+# 5. Endpoints responden
+curl http://localhost:5000/alumnos
+```
+
+O usar el script automatizado:
+
+```powershell
+.\scripts\verify_local.ps1   # Windows
+./scripts/verify_local.sh    # Linux
+```
+
+---
+
+## 📥 Importación de Alumnos desde CSV
+
+```bash
+# Crear tablas
 python crear_tablas.py
-```
 
-### 📤 2. Ejecutar el importador de alumnos
-
-```bash
+# Importar desde CSV
 python -m app.importers.importar_alumnos "alumnos.csv"
 ```
 
-### 📝 Consideraciones
+---
 
-- Se requiere tener la base de datos `sysacaddb` activa.
-- La tabla `alumnos` se crea con `crear_tablas.py`.
-- La columna `dni` debe ser única.
-- La carrera por defecto es **"Ingeniería en Sistemas"** (configurable en código).
-- El año de ingreso se extrae de `fecha_ingreso` en el CSV.
+## 📊 Pruebas de Carga (k6)
 
-### 📁 Estructura relevante
+```powershell
+# Levantar la app
+python run.py
 
-```text
-├── app/
-│   ├── models/alumno.py
-│   ├── database.py
-│   ├── importers/
-│   │   └── importar_alumnos.py
-├── crear_tablas.py
-├── alumnos.csv
-├── requirements.txt
-├── README.md
+# En otra terminal
+$env:SYSACAD_BASE_URL = "http://127.0.0.1:5000"
+k6 run spike_tests.js
 ```
+
+Ver `ANALISIS_TEST_CARGA_K6.md` para resultados detallados.
 
 ---
 
-## 🧪 Tests automatizados (pytest)
+## 🔐 Seguridad
 
-Este proyecto incluye **tests automatizados** con `pytest` para:
-
-- Importación de alumnos desde CSV.
-- Conexión a la base de datos.
-- Comportamiento básico de la aplicación.
-
-### ⚡ Requisitos previos para los tests
-
-- Entorno virtual (`.venv`) creado y activado.
-- Base de datos PostgreSQL levantada (`sysacaddb`).
-- Tablas creadas con:
-
-  ```bash
-  python crear_tablas.py
-  ```
-
-### ▶️ Ejecutar todos los tests
-
-```bash
-pytest test/ -v
-```
-
-### ▶️ Ejecutar un test específico
-
-Ejemplo:
-
-```bash
-pytest test/test_importar_alumnos.py -v
-```
+- `.env` está en `.gitignore` - nunca commitear credenciales reales
+- Usar `.env.example` como plantilla
+- En producción, usar siempre variables de entorno del sistema
+- Script de verificación: `python verify_security_fixes.py`
 
 ---
 
-## 📊 Pruebas de carga con k6 (spike test)
+## 📜 Licencia
 
-El proyecto incluye un script de prueba de carga `spike_tests.js` para el endpoint de alumnos.
-
-### Requisitos
-
-- k6 instalado y en el PATH (`k6 version`).
-- Microservicio corriendo en `http://127.0.0.1:5000` (por defecto).
-
-### Ejecución
-
-1. Levantar la aplicación:
-
-   ```powershell
-   .\.venv\Scripts\Activate.ps1
-   python run.py
-   ```
-
-2. En otra terminal, desde la raíz del proyecto:
-
-   ```powershell
-   $env:SYSACAD_BASE_URL = "http://127.0.0.1:5000"
-   k6 run spike_tests.js
-   ```
-
-El script:
-
-- Ejecuta un **spike de carga** contra `GET /alumnos`.
-- Verifica:
-  - `status 200` en las respuestas.
-  - Que la respuesta tenga `Content-Type: application/json`.
-- Aplica umbrales (`thresholds`):
-  - `p(95) < 500 ms` en `http_req_duration`.
-  - Tasa de error `< 1%` en `http_req_failed`.
-
-El análisis detallado de resultados se documenta en  
-**`ANALISIS_TEST_CARGA_K6.md`** (cuando corresponda).
-
----
-
-## ✅ Notas de buenas prácticas
-
-- Arquitectura multicapa → facilita aplicar principios **SOLID** y **DRY**.
-- Configuración por variables de entorno → alineado con **12-Factor App**.
-- Proyecto preparado para:
-  - Incorporar **Circuit Breaker**, **Retry**, **Rate Limit** y **cache en Redis/Dragonfly**.
-  - Extender tests con enfoque **TDD** en nuevas funcionalidades.
+Proyecto académico - UTN FRSR

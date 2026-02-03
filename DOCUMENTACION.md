@@ -1,6 +1,6 @@
-# 📜 Documentación del Sistema Flask-Sysacad
+# 📜 Documentación Técnica - Microservicio Alumno
 
-Este archivo tiene como objetivo dejar asentada toda la información técnica necesaria para comprender cómo funciona el sistema actual de gestión de alumnos de la UTN llamado **Flask-Sysacad**. Esta documentación servirá para colaborar en equipo, escalar el proyecto y facilitar el ingreso de nuevos desarrolladores.
+Este documento contiene la información técnica detallada del **Microservicio Alumno** del sistema Flask-Sysacad de la UTN.
 
 ---
 
@@ -8,293 +8,415 @@ Este archivo tiene como objetivo dejar asentada toda la información técnica ne
 
 ```text
 flask-sysacad/
-├── app/                    # Contiene la lógica principal de la aplicación
-│   ├── models/             # Modelos de datos (ORM SQLAlchemy)
-│   ├── routes/             # Rutas o endpoints de la API REST
-│   ├── services/           # Lógica de negocio separada de las rutas
-│   ├── validators/         # Validaciones de datos de entrada (opcional)
-│   ├── __init__.py         # Punto de entrada para crear la app Flask
-│   └── config.py           # Configuración de entornos (dev, prod)
-├── run.py                  # Script principal que levanta el servidor
-├── requirements.txt        # Dependencias del sistema
-├── .env                    # Variables de entorno (usuario y BD)
-├── README.md               # Documentación general del proyecto
-└── docs/                   # Documentación técnica complementaria (.md)
+├── app/                        # Código principal de la aplicación
+│   ├── __init__.py             # App factory (create_app)
+│   ├── db.py                   # Instancias de SQLAlchemy y Migrate
+│   ├── cli.py                  # Comandos CLI personalizados
+│   ├── models/                 # Modelos ORM (SQLAlchemy)
+│   │   ├── __init__.py
+│   │   └── alumno.py           # Modelo Alumno
+│   ├── routes/                 # Endpoints REST (Blueprints)
+│   │   └── alumno_routes.py    # Rutas de /alumnos
+│   ├── services/               # Lógica de negocio
+│   │   └── alumno_service.py
+│   ├── repositories/           # Capa de acceso a datos
+│   │   └── alumno_repository.py
+│   ├── dto/                    # Data Transfer Objects
+│   │   └── alumno_ficha.py
+│   ├── importers/              # Importadores de datos
+│   │   └── importar_alumnos.py # Importador CSV
+│   ├── validators/             # Validaciones de entrada
+│   ├── renderers/              # Renderizadores (PDF, etc)
+│   ├── mapping/                # Mapeos de datos
+│   ├── resources/              # Recursos estáticos
+│   └── utils/                  # Utilidades generales
+├── test/                       # Tests automatizados
+│   ├── __init__.py
+│   ├── test_app.py             # Test de app factory
+│   ├── test_db.py              # Test de conexión DB
+│   └── test_alumno_api.py      # Tests de endpoints API
+├── scripts/                    # Scripts auxiliares
+│   ├── init_db.py              # Inicialización DB (Docker)
+│   ├── verify_local.ps1        # Verificación local (Windows)
+│   └── verify_local.sh         # Verificación local (Linux)
+├── .github/workflows/
+│   └── ci.yml                  # GitHub Actions CI
+├── docker/                     # Configuración Docker adicional
+├── .env.example                # Plantilla de variables de entorno
+├── docker-compose.yml          # Orquestación de contenedores
+├── Dockerfile                  # Imagen del microservicio
+├── requirements.txt            # Dependencias Python
+├── run.py                      # Punto de entrada local
+├── crear_tablas.py             # Script para crear tablas
+└── wsgi.py                     # Punto de entrada WSGI (Gunicorn)
 ```
-
-> ✅ **¿Por qué esta estructura?** Para mantener una arquitectura limpia y escalable (multicapa). Cada carpeta cumple un rol específico que permite separar responsabilidades.
 
 ---
 
-## 📦 Modelos Definidos
+## 📦 Modelo de Datos
 
-### `Alumno` (en `app/models/alumno_model.py`)
+### `Alumno` (`app/models/alumno.py`)
+
+| Campo | Tipo | Restricciones | Descripción |
+|-------|------|---------------|-------------|
+| `id` | Integer | PK, autoincremental | Identificador único |
+| `legajo` | String(50) | Unique, nullable | Número de legajo |
+| `nombre` | String(100) | Not null | Nombre del alumno |
+| `apellido` | String(100) | Not null | Apellido del alumno |
+| `dni` | String(20) | Unique, nullable | Documento de identidad |
+| `email` | String(120) | Unique, nullable | Correo electrónico |
+| `facultad` | String(120) | Nullable | Facultad (ej: "FRC - UTN") |
+| `fecha_nacimiento` | Date | Nullable | Fecha de nacimiento |
+| `carrera` | String(120) | Nullable | Carrera que cursa |
+| `anio_ingreso` | Integer | Nullable | Año de ingreso |
 
 ```python
-id: int          # Identificador único, autoincremental
-nombre: str      # Nombre completo del alumno
-email: str       # Correo electrónico único
+# Ejemplo de uso
+alumno = Alumno(
+    dni="40123456",
+    nombre="Ana",
+    apellido="Pérez",
+    email="ana@example.com",
+    facultad="FRC - UTN",
+    legajo="2025-0001"
+)
+
+# Serialización
+alumno.to_dict()  # Devuelve diccionario JSON-serializable
 ```
 
-También incluye el método `to_dict()` que devuelve un diccionario con los datos del alumno. Esto facilita el trabajo en las respuestas JSON de la API.
+---
 
-> ✅ **¿Para qué sirven los modelos?** Representan las tablas de la base de datos. Permiten interactuar con PostgreSQL como si trabajáramos con objetos de Python (ORM).
+## 🌐 API REST
+
+### Endpoints Implementados
+
+| Método | Ruta | Descripción | Response |
+|--------|------|-------------|----------|
+| `GET` | `/alumnos` | Lista todos los alumnos (paginado) | `{"items": [...], "total": N}` |
+| `GET` | `/alumnos/<id>` | Obtiene un alumno por ID | `{alumno}` o `404` |
+| `POST` | `/alumnos` | Crea un nuevo alumno | `201` o `409` (duplicado) |
+| `GET` | `/alumnos/<id>/ficha` | Ficha del alumno (JSON) | `{ficha}` |
+| `GET` | `/alumnos/<id>/ficha.pdf` | Ficha del alumno (PDF) | Archivo PDF |
+
+### Ejemplos de Uso
+
+```bash
+# Listar alumnos
+curl http://localhost:5000/alumnos
+
+# Obtener alumno por ID
+curl http://localhost:5000/alumnos/1
+
+# Crear alumno
+curl -X POST http://localhost:5000/alumnos \
+  -H "Content-Type: application/json" \
+  -d '{"dni":"40123456","nombre":"Ana","apellido":"Pérez","email":"ana@example.com"}'
+```
 
 ---
 
-## 🌐 Rutas Definidas
+## ⚙️ Configuración
 
-### Archivo: `app/routes/alumno_routes.py`
+### Variables de Entorno
 
-| Método | Ruta     | Función           | Descripción                           |
-| ------ | -------- | ----------------- | ------------------------------------- |
-| GET    | /alumnos | `get_alumnos()`   | Lista todos los alumnos               |
-| POST   | /alumnos | `create_alumno()` | Crea un nuevo alumno con JSON enviado |
+| Variable | Obligatoria | Entorno | Default | Descripción |
+|----------|-------------|---------|---------|-------------|
+| `SECRET_KEY` | Sí (prod) | Todos | (testing: auto) | Clave secreta de Flask |
+| `SQLALCHEMY_DATABASE_URI` | Sí (prod) | Todos | - | URI de conexión principal |
+| `DEV_DATABASE_URI` | No | Dev | `sqlite:///sysacad_dev.db` | URI para desarrollo |
+| `TEST_DATABASE_URI` | No | Test | `sqlite:///:memory:` | URI para tests |
+| `FLASK_CONTEXT` | No | Todos | `development` | Contexto de ejecución |
+| `FLASK_SKIP_DOTENV` | No | CI | `0` | `1` para no cargar `.env` |
+| `FLASK_DEBUG` | No | Dev | `False` | Modo debug |
 
-> ✅ **¿Qué son las rutas?** Son los endpoints HTTP que puede consumir un cliente (navegador o frontend). Se conectan con los servicios para responder solicitudes.
+### Lógica de Conexión a Base de Datos
 
----
+```python
+# Prioridad de configuración en create_app():
+# 1. SQLALCHEMY_DATABASE_URI (si está definida)
+# 2. Según FLASK_CONTEXT:
+#    - testing: TEST_DATABASE_URI → fallback sqlite:///:memory:
+#    - development: DEV_DATABASE_URI → fallback sqlite:///sysacad_dev.db
+#    - production: FALLA si no hay URI
+```
 
-## ⚙️ Configuración del Entorno
-
-### `.env`
-
-Contiene las variables de entorno necesarias para la conexión a la base de datos. **Advertencia:** este archivo NUNCA debe subirse a GitHub si contiene credenciales reales.
+### Archivo `.env.example`
 
 ```env
-FLASK_CONTEXT=development
-DEV_DATABASE_URI=postgresql://usuario:password@localhost:5432/sysacaddb
+POSTGRES_DB=sysacaddb
+POSTGRES_USER=franco
+POSTGRES_PASSWORD=CHANGE_ME
+
+FLASK_CONTEXT=production
+SECRET_KEY=CHANGE_ME
+
+SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://franco:CHANGE_ME@postgres-sysacad:5432/sysacaddb
+REDIS_URL=redis://redis-sysacad:6379/0
 ```
 
-> ⚠️ **IMPORTANTE:** reemplazar `usuario` y `password` por los propios de cada desarrollador en su entorno local. Nunca exponer contraseñas reales en repositorios.
+> ⚠️ **IMPORTANTE:** `.env` está en `.gitignore`. Nunca commitear credenciales reales.
 
-> ✅ **Recomendación de seguridad:** configurar el archivo `.gitignore` para que excluya automáticamente el archivo `.env` del control de versiones:
+---
 
-```gitignore
-# Ignorar variables de entorno
-.env
+## 🧪 Testing
+
+### Estructura de Tests
+
+```text
+test/
+├── __init__.py
+├── test_app.py          # Verifica que create_app() funciona
+├── test_db.py           # Verifica conexión a base de datos
+└── test_alumno_api.py   # Tests de endpoints /alumnos
 ```
 
-### `app/config.py`
+### Ejecutar Tests (Modo CI)
 
-Lee estas variables de entorno y configura la app según el entorno activo (desarrollo, producción, etc).
+**Windows (PowerShell):**
 
-> ✅ **¿Por qué usamos `.env`?** Para separar las credenciales del código fuente y facilitar la configuración por usuario.
+```powershell
+# Activar entorno virtual
+.\.venv\Scripts\Activate.ps1
 
----
+# Configurar variables
+$env:FLASK_CONTEXT='testing'
+$env:FLASK_SKIP_DOTENV='1'
+$env:SQLALCHEMY_DATABASE_URI='sqlite:///:memory:'
 
-## 🚀 Inicialización del sistema
+# Ejecutar
+python -m pytest -q
 
-### `run.py`
-
-Contiene:
-
-```python
-from app import create_app, db
-
-app = create_app()
-with app.app_context():
-    db.create_all()
-
-app.run(debug=True)
+# O usar script automatizado
+.\scripts\verify_local.ps1
 ```
 
-> ✅ **¿Qué hace este archivo?** Arranca la aplicación. Crea las tablas si no existen y lanza el servidor local (<http://127.0.0.1:5000>).
+**Linux/macOS (bash):**
+
+```bash
+# Activar entorno virtual
+source .venv/bin/activate
+
+# Configurar variables
+export FLASK_CONTEXT=testing
+export FLASK_SKIP_DOTENV=1
+export SQLALCHEMY_DATABASE_URI='sqlite:///:memory:'
+
+# Ejecutar
+python -m pytest -q
+
+# O usar script automatizado
+./scripts/verify_local.sh
+```
+
+### Tests Disponibles
+
+| Test | Archivo | Descripción |
+|------|---------|-------------|
+| `test_app` | `test_app.py` | Verifica que la app se crea correctamente |
+| `test_db_connection` | `test_db.py` | Verifica conexión a DB |
+| `test_get_alumnos_ok` | `test_alumno_api.py` | GET /alumnos retorna 200 |
+| `test_get_alumno_por_id_ok` | `test_alumno_api.py` | GET /alumnos/<id> retorna 200 |
+| `test_get_alumno_por_id_not_found` | `test_alumno_api.py` | GET /alumnos/<id> inexistente retorna 404 |
+| `test_post_alumno_crea_ok` | `test_alumno_api.py` | POST /alumnos crea correctamente |
+| `test_post_alumno_dni_duplicado` | `test_alumno_api.py` | POST /alumnos con DNI duplicado retorna 409 |
 
 ---
 
-## 📄 Documentación Adicional
+## 🐳 Docker
 
-El proyecto incluye un directorio `docs/` donde se almacena el archivo `Documentacion Sysacad.pdf` como referencia complementaria. Este material:
+### docker-compose.yml
 
-- Sirve como respaldo de decisiones técnicas
-- Puede ser consultado offline
-- No contiene contraseñas ni datos sensibles
+Servicios definidos:
 
-> ✅ **Recomendación:** mantener la versión más reciente de este PDF en el repositorio, pero sin sustituir la documentación Markdown colaborativa.
+| Servicio | Puerto | Descripción |
+|----------|--------|-------------|
+| `sysacad-alumno` | 5000 | Microservicio Flask |
+| `sysacad-alumno-init` | - | Job de inicialización DB |
+| `postgres-sysacad` | 5432 | Base de datos PostgreSQL |
+| `traefik` | 80 | Reverse proxy / Load balancer |
 
----
+### Comandos Útiles
 
-## 🧩 Alcance del microservicio_alumno
+```bash
+# Levantar todo
+docker compose up -d --build
 
-El **microservicio_alumno** se encarga de centralizar la lógica relacionada con los datos básicos de los alumnos del sistema Sysacad.
+# Ver estado
+docker compose ps
 
-### Responsabilidades principales
+# Ver logs del microservicio
+docker compose logs -f sysacad-alumno
 
-- Gestionar el **ciclo de vida** de un alumno:
-  - Alta (creación)
-  - Consulta
-  - Actualización
-  - Baja (eliminación lógica o física, según se defina)
-- Exponer endpoints **REST** que devuelven y reciben información de alumnos en formato **JSON**.
-- Validar datos básicos antes de persistirlos (por ejemplo: formato de email, unicidad de DNI).
-- Servir como **fuente de verdad** de los datos de alumno para otros módulos o microservicios.
+# Conectar a PostgreSQL
+docker exec -it postgres-sysacad psql -U franco -d sysacaddb
 
-### Fuera de alcance (otros módulos / microservicios)
+# Dentro de psql:
+\dt                          # Listar tablas
+SELECT * FROM alumnos LIMIT 5;  # Ver alumnos
+\q                           # Salir
 
-- Gestión de inscripciones a materias y cursadas.
-- Gestión de carreras, planes de estudio y correlatividades.
-- Procesos administrativos generales (pagos, estados de deuda, legajos administrativos).
-- Reportes globales que combinen alumnos + materias + notas + pagos.
+# Detener todo
+docker compose down
 
-> 🧠 En resumen: este microservicio se focaliza en “**quién es**” el alumno (sus datos maestros), no en “**qué hace**” en el sistema.
-
----
-
-## 🔗 Endpoints principales del microservicio_alumno
-
-A continuación se describen los endpoints clave asociados a alumnos.  
-Se distinguen los **ya implementados** y los **previstos** para futuras iteraciones.
-
-### ✅ Endpoints actualmente implementados
-
-> Basados en `app/routes/alumno_routes.py`.
-
-| Método | Ruta       | Descripción                                      | Estado        |
-|--------|-----------|--------------------------------------------------|---------------|
-| GET    | `/alumnos` | Devuelve el listado de alumnos.                 | Implementado  |
-| POST   | `/alumnos` | Crea un nuevo alumno a partir de un JSON válido.| Implementado  |
-
-### 🚧 Endpoints previstos / roadmap
-
-> Estos endpoints sirven como guía de evolución del microservicio.
-
-| Método | Ruta                       | Descripción                                                                    |
-|--------|----------------------------|--------------------------------------------------------------------------------|
-| GET    | `/alumnos/<id>`           | Obtiene el detalle de un alumno por su identificador interno.                 |
-| PUT    | `/alumnos/<id>`           | Actualiza los datos básicos de un alumno existente.                           |
-| DELETE | `/alumnos/<id>`           | Elimina (lógica o físicamente) un alumno.                                     |
-| GET    | `/alumnos/<id>/ficha`     | Devuelve la ficha del alumno en formato JSON (datos consolidados).           |
-| GET    | `/alumnos/<id>/ficha.pdf` | Devuelve la ficha del alumno en formato PDF (para impresión o descarga).     |
-
-> 🔎 Aunque algunos endpoints aún no estén desarrollados, dejarlos documentados alinea al equipo con la visión de arquitectura y facilita el diseño de otros microservicios.
+# Limpiar volúmenes (⚠️ borra datos)
+docker compose down -v
+```
 
 ---
 
-## ⚙️ Configuración y variables de entorno para el microservicio_alumno
+## 🔄 GitHub Actions CI
 
-El comportamiento del microservicio depende de variables de entorno, leídas desde `.env` en desarrollo o desde el entorno del sistema en producción.
+### Workflow: `.github/workflows/ci.yml`
 
-| Variable                  | Obligatoria | Entorno      | Descripción                                                                 |
-|---------------------------|------------|--------------|-----------------------------------------------------------------------------|
-| `FLASK_CONTEXT`           | No         | Todos        | Indica el contexto: `development` / `production`. Default: `development`.  |
-| `DEV_DATABASE_URI`        | No         | Desarrollo   | URI de conexión a la base de datos de desarrollo (PostgreSQL local).       |
-| `SQLALCHEMY_DATABASE_URI` | Sí (prod)  | Producción   | URI de conexión a la base principal en entorno productivo.                 |
-| `SECRET_KEY`              | Sí         | Todos        | Clave secreta de Flask para firmar cookies y sesiones.                     |
-| `FLASK_DEBUG`             | No         | Desarrollo   | `True` para debug en local; debe estar desactivado en producción.          |
+```yaml
+name: CI
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
-> 🔐 Buenas prácticas:
-> - Nunca commitear valores reales de `SECRET_KEY` ni credenciales de base de datos.
-> - En producción, usar siempre variables de entorno o un gestor de secretos.
-> - Mantener `.env` fuera del control de versiones (ya configurado en `.gitignore`).
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - run: pip install -r requirements.txt && pip install pytest
+      - name: Run tests
+        env:
+          FLASK_CONTEXT: testing
+          FLASK_SKIP_DOTENV: "1"
+          SQLALCHEMY_DATABASE_URI: "sqlite:///:memory:"
+        run: pytest -q
+```
 
 ---
 
-## 🔐 Verificación rápida de seguridad
+## 📥 Importación de Alumnos
 
-El proyecto incluye un script auxiliar para validar aspectos mínimos de seguridad en la configuración de Flask.
+### Desde CSV
 
-### Script: `verify_security_fixes.py`
+```bash
+# Crear tablas (si no existen)
+python crear_tablas.py
 
-Este script verifica que:
+# Importar alumnos
+python -m app.importers.importar_alumnos "alumnos.csv"
+```
 
-- La aplicación **no arranca** si falta `SECRET_KEY`.
-- El modo **debug está desactivado por defecto**.
-- La aplicación **arranca correctamente** con una configuración válida.
+### Formato CSV Esperado
 
-### Cómo ejecutarlo
+```csv
+nro_documento,nro_legajo,nombre,apellido,fecha_nacimiento,fecha_ingreso
+40123456,2025-0001,Ana,Pérez,1995-05-15,2020-03-01
+```
 
-En la raíz del proyecto, con el entorno virtual activo:
+El importador:
+- Evita duplicados por DNI
+- Extrae año de ingreso desde `fecha_ingreso`
+- Usa inserción en bloque para performance
+
+---
+
+## 🔐 Seguridad
+
+### Verificación de Configuración
 
 ```bash
 python verify_security_fixes.py
 ```
 
-Si todas las pruebas pasan, se mostrará un resumen con mensajes `PASS` indicando que:
+Verifica:
+- `SECRET_KEY` está definida
+- `DEBUG` no está forzado en producción
+- La app arranca correctamente
 
-- La app falla correctamente cuando falta `SECRET_KEY`.
-- El modo debug por defecto es `False`.
-- Con una configuración válida, la app inicia sin problemas.
+### Buenas Prácticas
 
----
-
-## 📈 Prueba de carga con k6 para `/alumnos`
-
-Esta sección documenta la prueba de carga sobre el endpoint `GET /alumnos` utilizando **k6**, basada en el script `spike_tests.js` brindado por la cátedra y adaptado al proyecto Flask-Sysacad.
-
-### ✅ Requisitos previos
-
-- k6 instalado y accesible desde la consola (`k6 version`).
-- Entorno virtual de Python creado y activado (`.venv`).
-- Variables de entorno configuradas correctamente (especialmente `SECRET_KEY` y la URI de base de datos).
-- Base de datos PostgreSQL `sysacaddb` levantada.
-- Aplicación Flask ejecutándose en:
-
-```text
-http://localhost:5000
-```
-
-### 🧩 Pasos para ejecutar la prueba de carga
-
-1. **Activar el entorno virtual** en la raíz del proyecto:
-
-   ```powershell
-   .\.venv\Scripts\Activate.ps1
-   ```
-
-2. **Levantar la aplicación Flask**:
-
-   ```powershell
-   python run.py
-   ```
-
-   Esto deja la API escuchando en `http://localhost:5000`.
-
-3. **En otra terminal**, ubicarse en la raíz del proyecto y ejecutar k6:
-
-   ```powershell
-   k6 run spike_tests.js
-   ```
-
-### 🔍 Descripción del escenario de carga
-
-El archivo `spike_tests.js` define el siguiente escenario:
-
-- Ramp-up hasta **100 usuarios virtuales (VUs)** en **10 segundos**.
-- Mantiene **100 VUs** durante **20 segundos**.
-- Ramp-down a **0 VUs** en **10 segundos**.
-
-Cada VU realiza solicitudes `GET` al endpoint:
-
-```text
-http://localhost:5000/alumnos
-```
-
-El script registra:
-
-- Códigos de estado HTTP (200, 400, 404, 409, 429, 500).
-- Tiempos de respuesta (`http_req_duration`).
-- Porcentaje de requests fallidas (`http_req_failed`).
-- Métrica personalizada `status_codes` (Trend) para analizar la distribución de respuestas.
-
-### ✅ Resultado esperado
-
-En condiciones normales de funcionamiento:
-
-- La mayoría de los checks deben aparecer como `"status is 200"`.
-- La métrica `http_req_failed` debería ser `0.00%`.
-- El promedio de `http_req_duration` debe mantenerse en valores razonables para el entorno local.
-
-### 🔄 Ejecución en entorno Docker (opcional)
-
-Si el proyecto se ejecuta dentro de **Docker** y el servicio Flask se expone con otro nombre (por ejemplo `web`), se puede ajustar la constante `BASE_URL` en `spike_tests.js` para apuntar a:
-
-```js
-const BASE_URL = "http://web:5000/alumnos";
-```
-
-Esto permite que el contenedor de k6 golpee al servicio Flask dentro de la misma red de Docker.
+1. **`.env` nunca se commitea** - está en `.gitignore`
+2. **Usar `.env.example`** como plantilla
+3. **En producción**: usar variables de entorno del sistema o gestor de secretos
+4. **SECRET_KEY diferente** en cada entorno
 
 ---
 
-Con esto queda documentado el estado actual del sistema. A partir de aquí, el equipo puede continuar desarrollando nuevas funcionalidades con claridad.
+## ✅ Checklist de Verificación
+
+```bash
+# 1. Git status limpio
+git status
+
+# 2. Tests pasan
+python -m pytest -q
+
+# 3. No hay módulos no-alumno
+git grep -n -E "import_materias|import_planes|archivados_xml" -- .
+
+# 4. Docker funciona (opcional)
+docker compose ps
+curl http://localhost/alumnos
+
+# 5. Endpoint directo funciona
+curl http://localhost:5000/alumnos
+```
+
+### Script Automatizado
+
+```powershell
+# Windows
+.\scripts\verify_local.ps1
+
+# Linux
+./scripts/verify_local.sh
+```
+
+---
+
+## 🔍 Alcance del Microservicio
+
+### ✅ Responsabilidades
+
+- CRUD de datos básicos de alumnos
+- Importación masiva desde CSV
+- Generación de ficha de alumno (JSON/PDF)
+- Validación de datos (DNI único, email válido)
+- API REST para consumo por otros servicios
+
+### ❌ Fuera de Alcance
+
+- Gestión de materias y cursadas
+- Gestión de planes de estudio
+- Procesos administrativos (pagos, deudas)
+- Autenticación/autorización (delegado a API Gateway)
+
+---
+
+## 📊 Pruebas de Carga (k6)
+
+```bash
+# Levantar la app
+python run.py
+
+# Ejecutar spike test
+k6 run spike_tests.js
+```
+
+El script `spike_tests.js`:
+- Ramp-up a 100 VUs en 10s
+- Mantiene 100 VUs por 20s
+- Ramp-down a 0 VUs en 10s
+- Verifica status 200 y latencia p95 < 500ms
+
+Ver `ANALISIS_TEST_CARGA_K6.md` para resultados.
+
+---
+
+*Última actualización: Enero 2026*
